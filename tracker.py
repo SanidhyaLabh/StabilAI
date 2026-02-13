@@ -1,11 +1,12 @@
 import cv2
 import numpy as np
 
-CAM_SRC = 0  # Default to 0 (internal webcam) if no URL provided
+CAM_SRC = 0  # Default to 0 (internal webcam) for TOP view
+SIDE_CAM_SRC = 1 # Default to 1 (second webcam) for SIDE view
 
 # You can hardcode your camera URLs here if you don't want to type them in the website
-DEFAULT_TOP_CAM_URL =  "http://10.185.236.38:8080/video"
-DEFAULT_SIDE_CAM_URL = "http://10.185.236.109:8080/video"
+DEFAULT_TOP_CAM_URL =  "http://172.18.227.85:8080/video"
+DEFAULT_SIDE_CAM_URL = "http://172.18.230.176:8080/video"
 
 
 def classify_skill(psi):
@@ -53,19 +54,47 @@ def start_tracking(mode, side_cam_url=None, top_cam_url=None):
     cap = cv2.VideoCapture(top_source)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-    # Determine Side Camera Source
-    side_source = None
+    if not cap.isOpened():
+        print(f"ERROR: Failed to open Top Camera ({top_source})")
+        return {
+            "psi": 0, "tremor": 0, "error": 0, "depth_error": 0,
+            "pressure_dev": 0, "over_pen": 0, "skill": "Camera Error", 
+            "mode": mode, "trajectory": []
+        }
+    else:
+        print("SUCCESS: Top Camera connected.")
+
+    # Determine Side Camera Source logic with fallback
+    side_source_primary = None
     if side_cam_url and len(side_cam_url) > 5:
-        side_source = side_cam_url
+        side_source_primary = side_cam_url
     elif DEFAULT_SIDE_CAM_URL and len(DEFAULT_SIDE_CAM_URL) > 5:
-        side_source = DEFAULT_SIDE_CAM_URL
+        side_source_primary = DEFAULT_SIDE_CAM_URL
 
     cap_side = None
-    if side_source:
-        cap_side = cv2.VideoCapture(side_source)
-        cap_side.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-    if not cap.isOpened():
+    
+    # Try primary side source (IP)
+    if side_source_primary:
+        print(f"Connecting to Side Camera (Primary): {side_source_primary}")
+        temp_cap = cv2.VideoCapture(side_source_primary)
+        temp_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        if temp_cap.isOpened():
+            cap_side = temp_cap
+            print("SUCCESS: Side Camera connected (Primary).")
+        else:
+            print(f"WARNING: Failed to connect to Side Camera (Primary): {side_source_primary}")
+            temp_cap.release()
+    
+    # Fallback to local index if primary failed or wasn't set
+    if cap_side is None:
+        print(f"Connecting to Side Camera (Fallback): Index {SIDE_CAM_SRC}")
+        temp_cap = cv2.VideoCapture(SIDE_CAM_SRC)
+        if temp_cap.isOpened():
+            cap_side = temp_cap
+            print(f"SUCCESS: Side Camera connected (Fallback Index {SIDE_CAM_SRC}).")
+        else:
+            print(f"WARNING: Failed to connect to Side Camera (Fallback Index {SIDE_CAM_SRC}). Side view disabled.")
+            temp_cap.release()
         return {
             "psi": 0,
             "tremor": 0,
@@ -173,20 +202,30 @@ def start_tracking(mode, side_cam_url=None, top_cam_url=None):
 
         if x is not None and radius > 5:
 
-            trajectory.append((x, y))
-
-            if len(trajectory) > 1:
-                cv2.line(frame, trajectory[-2], trajectory[-1],
-                            (0, 255, 255), 2)
-
-            # Tremor
+            # =====================
+            # REAL-TIME METRICS
+            # =====================
+            
+            # Tremor (Instantaneous)
+            instant_tremor = 0
             if prev is not None:
-                tremor.append(np.linalg.norm(
-                    np.array([x, y]) - np.array(prev)))
+                instant_tremor = np.linalg.norm(np.array([x, y]) - np.array(prev))
+                tremor.append(instant_tremor)
             prev = (x, y)
 
-            # Error (baseline deviation)
-            errors.append(abs(y - 240))
+            # Error (Instantaneous)
+            instant_error = 0
+            if mode == "line":
+                instant_error = abs(y - 240)
+            elif mode == "circle":
+                instant_error = abs(np.sqrt((x - w // 2) ** 2 + (y - h // 2) ** 2) - 100)
+            elif mode == "brain":
+                 dist = cv2.pointPolygonTest(brain_path, (x, y), True)
+                 instant_error = max(0, abs(dist) - 15) # 15 is tolerance
+            elif mode == "needle_target":
+                instant_error = np.sqrt((x - w // 2) ** 2 + (y - h // 2) ** 2)
+            
+            errors.append(instant_error)
 
             # Depth
             if z_val is not None:
@@ -198,28 +237,60 @@ def start_tracking(mode, side_cam_url=None, top_cam_url=None):
             pressure_values.append(area / 500.0)
 
             # =====================
-            # MODE SPECIFIC LOGIC
+            # DYNAMIC FEEDBACK
+            # =====================
+            
+            # Color logic: Green (Good), Red (Bad)
+            # Thresholds: Tremor > 15, Error > 20
+            color = (0, 255, 0) # Green
+            warning_text = ""
+            
+            if instant_tremor > 15:
+                color = (0, 0, 255) # Red
+                warning_text = "HIGH TREMOR!"
+            elif instant_error > 20:
+                color = (0, 0, 255) # Red
+                warning_text = "OFF PATH!"
+            elif mode == "brain" and (300 < x < 420) and (130 < y < 240):
+                color = (0, 0, 255)
+                warning_text = "RESTRICTED AREA!"
+
+            # Store (x, y, z, color)
+            # Use z_val if available, else use radius as depth proxy, else 0
+            current_z = z_val if z_val is not None else radius
+            trajectory.append((x, y, current_z, color))
+
+            # Draw Trajectory with dynamic colors
+            if len(trajectory) > 1:
+                for i in range(1, len(trajectory)):
+                    # Use stored color for each segment
+                    pt1 = trajectory[i-1][:2]
+                    pt2 = trajectory[i][:2]
+                    seg_color = trajectory[i][3] # Color is now at index 3
+                    cv2.line(frame, pt1, pt2, seg_color, 2)
+            
+            # Draw Warning
+            if warning_text:
+                cv2.putText(frame, warning_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 
+                            1, (0, 0, 255), 3)
+
+            # =====================
+            # PROGRESS LOGIC
             # =====================
 
             if mode == "line":
-                if abs(y - 240) < 12:
+                if instant_error < 12:
                     progress_counter += 1
 
             elif mode == "circle":
-                dist = abs(np.sqrt((x - w // 2) ** 2 + (y - h // 2) ** 2) - 100)
-                if dist < 12:
+                if instant_error < 12:
                     progress_counter += 1
 
             elif mode == "brain":
-
                 # Restricted penalty
                 if (300 < x < 420) and (130 < y < 240):
                     restricted_hits += 1
-                    cv2.putText(frame, "WARNING: Restricted Area!",
-                                (160, 70),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.7, (0, 0, 255), 2)
-
+                
                 dist = cv2.pointPolygonTest(brain_path, (x, y), True)
                 if abs(dist) < 15:
                     progress_counter += 1
@@ -231,16 +302,22 @@ def start_tracking(mode, side_cam_url=None, top_cam_url=None):
                     progress_counter += 1
 
             elif mode == "needle_target":
-                target_error = np.sqrt((x - w // 2) ** 2 + (y - h // 2) ** 2)
-                targeting_errors.append(target_error)
-                if target_error < 12:
+                targeting_errors.append(instant_error)
+                if instant_error < 12:
                     progress_counter += 1
 
             elif mode == "depth_drill":
                 if 15 < radius < 40:
                     progress_counter += 1
 
-            cv2.circle(frame, (x, y), 6, (0, 0, 255), -1)
+            cv2.circle(frame, (x, y), 6, color, -1)
+
+        # Draw HUD / Progress Bar
+        bar_width = int((progress_counter / required_progress) * w)
+        cv2.rectangle(frame, (0, h - 20), (bar_width, h), (0, 255, 0), -1)
+        cv2.putText(frame, f"Progress: {int((progress_counter/required_progress)*100)}%", 
+                    (10, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
 
         cv2.imshow("AI Surgical Trainer", frame)
 

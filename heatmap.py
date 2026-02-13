@@ -4,7 +4,10 @@ def generate_heatmap(trajectory, ideal_path):
 
     heatmap = []
 
-    for point in trajectory:
+    for item in trajectory:
+        # Trajectory items might be (x, y), (x, y, color) or (x, y, z, color)
+        # We just need the first two elements
+        point = item[:2] 
         dist = min(
             [np.linalg.norm(np.array(point)-np.array(p)) for p in ideal_path]
         )
