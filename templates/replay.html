@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>STABIL. | Session Replay</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Poppins:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #1E1E1E;
+            color: white;
+        }
+
+        .header {
+            padding: 40px 80px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 42px;
+        }
+
+        .replay-container {
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        canvas {
+            background: black;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.2);
+            border: 2px solid #333;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 20px;
+        }
+
+        .legend span {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            color: white;
+            background: #333;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background: #444;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Trajectory Heatmap Replay</h1>
+        <a href="/dashboard" class="btn">Back to Dashboard</a>
+    </div>
+
+    <div class="replay-container">
+        <canvas id="heatmapCanvas" width="640" height="480"></canvas>
+    </div>
+
+    <div class="legend">
+        <span>
+            <div class="dot" style="background:rgba(0,255,0,0.8);"></div> Stable
+        </span>
+        <span>
+            <div class="dot" style="background:rgba(255,255,0,0.8);"></div> Minor Tremor
+        </span>
+        <span>
+            <div class="dot" style="background:rgba(255,0,0,0.8);"></div> High Tremor
+        </span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('heatmapCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Fetch data
+        fetch('/heatmap-data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    ctx.fillStyle = "white";
+                    ctx.font = "20px Poppins";
+                    ctx.fillText("No session data available for replay.", 150, 240);
+                    return;
+                }
+                startReplay(data);
+            });
+
+        function startReplay(trajectory) {
+            let i = 0;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = 4;
+
+            function animate() {
+                if (i >= trajectory.length - 1) return;
+
+                const p1 = trajectory[i];
+                const p2 = trajectory[i + 1];
+
+                // Calculate speed/tremor proxy (distance between points)
+                const dist = Math.sqrt(Math.pow(p2[0] - p1[0], 2) + Math.pow(p2[1] - p1[1], 2));
+
+                // Color mapping based on "speed" (proxy for tremor/instability if sampling is constant)
+                // Low dist = slow/controlled (Green), High dist = fast/jerky (Red)
+                // Adjust thresholds based on typical frame rate
+                let color = "rgba(0, 255, 0, 0.6)";
+                if (dist > 15) color = "rgba(255, 0, 0, 0.6)";
+                else if (dist > 8) color = "rgba(255, 255, 0, 0.6)";
+
+                ctx.beginPath();
+                ctx.moveTo(p1[0], p1[1]);
+                ctx.lineTo(p2[0], p2[1]);
+                ctx.strokeStyle = color;
+                ctx.stroke();
+
+                // Fade effect (optional - clear rect with low opacity black)
+                // ctx.fillStyle = "rgba(0,0,0,0.02)";
+                // ctx.fillRect(0,0,640,480);
+
+                i++;
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+    </script>
+
+</body>
+
+</html>

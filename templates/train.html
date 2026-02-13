@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STABIL. | Select Training Program</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #ffffff;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        /* HEADER / HERO */
+        .hero {
+            background: #1c1c1c;
+            color: white;
+            padding: 40px 60px 120px 60px;
+            border-bottom-left-radius: 50% 20%;
+            border-bottom-right-radius: 50% 20%;
+            position: relative;
+            text-align: center;
+        }
+
+        .logo {
+            position: absolute;
+            top: 40px;
+            left: 60px;
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 28px;
+            letter-spacing: 2px;
+            color: white;
+            text-decoration: none;
+        }
+
+        .page-title {
+            margin-top: 60px;
+        }
+
+        .page-title h1 {
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 42px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .back-arrow {
+            font-size: 32px;
+            color: #ccc;
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .back-arrow:hover {
+            color: white;
+        }
+
+        .page-title p {
+            margin-top: 10px;
+            color: #ccc;
+            font-size: 16px;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        /* CARD GRID */
+        .wrapper {
+            padding: 60px 80px 100px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .card-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        /* CARDS */
+        .training-card {
+            background: #1c1c1c;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            border: none;
+            height: 200px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-align: left;
+        }
+
+        .training-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .training-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .training-card:hover img {
+            opacity: 0.9;
+        }
+
+        .card-label {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 16px;
+            z-index: 2;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Overlay gradient for readability */
+        .training-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="hero">
+        <a href="/" class="logo">STABIL.</a>
+
+        <div class="page-title">
+            <h1>
+                <a href="/" class="back-arrow">&lt;</a>
+                Select Training Program
+            </h1>
+            <p>Choose the module you'd like to proceed with :</p>
+        </div>
+    </header>
+
+    <div class="wrapper">
+        <form action="/start" method="POST"
+            style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 30px;">
+
+            <div class="card-container">
+
+                <button type="submit" name="mode" value="line" class="training-card">
+                    <img src="{{ url_for('static', filename='images/incision.png') }}" alt="Incision">
+                    <span class="card-label">Incision Training</span>
+                </button>
+
+                <button type="submit" name="mode" value="circle" class="training-card">
+                    <img src="{{ url_for('static', filename='images/circle.png') }}" alt="Circle">
+                    <span class="card-label">Circle Precision Training</span>
+                </button>
+
+                <!-- Placeholder cards for empty spots in visual ref if needed, or keeping existing functionality -->
+
+                <button type="submit" name="mode" value="brain" class="training-card">
+                    <img src="{{ url_for('static', filename='images/brain.png') }}" alt="Brain">
+                    <span class="card-label">Brain Path Navigation</span>
+                </button>
+
+                <button type="submit" name="mode" value="micro" class="training-card">
+                    <img src="{{ url_for('static', filename='images/micro.png') }}" alt="Micro">
+                    <span class="card-label">Microsurgery Stability</span>
+                </button>
+
+                <button type="submit" name="mode" value="suturing" class="training-card">
+                    <img src="{{ url_for('static', filename='images/suture.png') }}" alt="Suture">
+                    <span class="card-label">Suturing Training</span>
+                </button>
+
+                <button type="submit" name="mode" value="depth_drill" class="training-card">
+                    <img src="{{ url_for('static', filename='images/depth.png') }}" alt="Depth">
+                    <span class="card-label">Depth Control Drill</span>
+                </button>
+
+                <button type="submit" name="mode" value="needle_target" class="training-card">
+                    <img src="{{ url_for('static', filename='images/needle.png') }}" alt="Needle">
+                    <span class="card-label">Needle Targeting</span>
+                </button>
+
+            </div>
+        </form>
+    </div>
+
+</body>
+
+</html>
