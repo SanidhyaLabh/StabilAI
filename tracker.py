@@ -5,7 +5,7 @@ CAM_SRC = 0  # Default to 0 (internal webcam) for TOP view
 SIDE_CAM_SRC = 1 # Default to 1 (second webcam) for SIDE view
 
 # You can hardcode your camera URLs here if you don't want to type them in the website
-DEFAULT_TOP_CAM_URL =  "http://172.18.227.85:8080/video"
+DEFAULT_TOP_CAM_URL =  "http://172.18.232.196:8080/video"
 DEFAULT_SIDE_CAM_URL = "http://172.18.230.176:8080/video"
 
 
@@ -135,6 +135,11 @@ def start_tracking(mode, side_cam_url=None, top_cam_url=None):
         h, w, _ = frame.shape
 
         # =======================
+        # COLOR TRACKING (MOVED UP)
+        # =======================
+        x, y, radius, area = detect_blue_object(frame)
+
+        # =======================
         # SIDE CAMERA PROCESSING
         # =======================
         z_val = None
@@ -160,16 +165,41 @@ def start_tracking(mode, side_cam_url=None, top_cam_url=None):
         # =======================
 
         if mode == "line":
+            # Target Path
             cv2.line(frame, (50, 240), (w - 50, 240), (0, 255, 0), 2)
+            
+            # Start/End Markers
+            cv2.circle(frame, (50, 240), 10, (0, 255, 0), -1) # Green Start
+            cv2.putText(frame, "START", (40, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            cv2.circle(frame, (w - 50, 240), 10, (0, 0, 255), -1) # Red End
+            cv2.putText(frame, "END", (w - 70, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         elif mode == "circle":
             cv2.circle(frame, (w // 2, h // 2), 100, (0, 255, 0), 2)
+            
+            # Start at 3 o'clock position
+            sx, sy = w // 2 + 100, h // 2
+            cv2.circle(frame, (sx, sy), 10, (0, 255, 0), -1)
+            cv2.putText(frame, "START/END", (sx + 15, sy), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
 
         elif mode == "micro":
             cv2.circle(frame, (w // 2, h // 2), 40, (0, 255, 0), 2)
+            # Center is target
+            cv2.putText(frame, "TARGET", (w // 2 - 30, h // 2 - 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         elif mode == "brain":
             cv2.polylines(frame, [brain_path], False, (0, 255, 0), 2)
+
+            # Start/End from path
+            bsx, bsy = brain_path[0]
+            bex, bey = brain_path[-1]
+            
+            cv2.circle(frame, (bsx, bsy), 8, (0, 255, 0), -1)
+            cv2.putText(frame, "START", (bsx - 20, bsy - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            cv2.circle(frame, (bex, bey), 8, (0, 0, 255), -1)
+            cv2.putText(frame, "END", (bex + 10, bey), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
             # Restricted zone
             rx1, ry1 = 300, 130
@@ -182,8 +212,16 @@ def start_tracking(mode, side_cam_url=None, top_cam_url=None):
             cv2.rectangle(frame, (w // 2 - 60, 200), (w // 2 + 60, 300), (255, 0, 0), 2)
 
         elif mode == "suturing":
+            # Draw lines
             cv2.line(frame, (100, 220), (540, 220), (0, 255, 0), 2)
             cv2.line(frame, (100, 280), (540, 280), (0, 255, 0), 2)
+            
+            # Start/End for top line
+            cv2.circle(frame, (100, 220), 8, (0, 255, 0), -1)
+            cv2.putText(frame, "START", (80, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            cv2.circle(frame, (540, 220), 8, (0, 0, 255), -1)
+            cv2.putText(frame, "END", (530, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         elif mode == "depth_drill":
             cv2.putText(frame, "Maintain Depth Zone",
@@ -193,12 +231,7 @@ def start_tracking(mode, side_cam_url=None, top_cam_url=None):
 
         elif mode == "needle_target":
             cv2.circle(frame, (w // 2, h // 2), 12, (0, 255, 0), -1)
-
-        # =======================
-        # COLOR TRACKING
-        # =======================
-
-        x, y, radius, area = detect_blue_object(frame)
+            cv2.putText(frame, "TARGET", (w // 2 - 30, h // 2 - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         if x is not None and radius > 5:
 
